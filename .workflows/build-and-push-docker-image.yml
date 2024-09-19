@@ -31,4 +31,3 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: finalpi/china-workday-api:latest
-          platforms: linux/amd64
