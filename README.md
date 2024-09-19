@@ -2,6 +2,24 @@
 
 使用java实现的查询是否是工作日的api接口,支持大小周和调休,配合tasker使用可以自动设置明日的闹钟
 
+# 部署方法
+
+## 使用docker-compose
+```yaml
+version: '3'
+services:
+  china-workday-api:
+    image: finalpi/china-workday-api:latest
+    ports:
+      - "10033:8080"
+    restart: always
+```
+
+## 使用docker
+```shell
+docker run -d -p 10033:8080 --name china-workday-api finalpi/china-workday-api:latest
+```
+
 # 接口列表
 **接口名称:**
 

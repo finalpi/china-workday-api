@@ -1,0 +1,7 @@
+version: '3'
+services:
+  china-workday-api:
+    image: finalpi/china-workday-api:latest
+    ports:
+      - "10033:8080"
+    restart: always
