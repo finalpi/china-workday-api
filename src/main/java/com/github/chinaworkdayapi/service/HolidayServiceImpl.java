@@ -50,7 +50,7 @@ public class HolidayServiceImpl implements HolidayService{
 
     private void refreshHoliday(String yyyy) {
         JSONObject jsonObject = JSONUtil.parseObj(holidayList);
-        String year = jsonObject.getStr("Generated").substring(0, 4);
+        String year = DateUtil.year(new Date()) + "";
         if (!year.equals(yyyy)) {
             holidayList = HttpUtil.get(
                 "https://www.shuyz.com/githubfiles/china-holiday-calender/master/holidayAPI.json");
@@ -62,7 +62,7 @@ public class HolidayServiceImpl implements HolidayService{
         holidayStringList = new ArrayList<>();
         compDayStringList = new ArrayList<>();
         JSONArray arrays = jsonObject.getJSONObject("Years")
-            .getJSONArray(jsonObject.getStr("Generated").substring(0, 4));
+            .getJSONArray(DateUtil.year(new Date()) + "");
         for (Object array : arrays) {
             JSONObject jo = (JSONObject)array;
             // 将字符串转换为 DateTime 对象
