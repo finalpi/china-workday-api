@@ -6,7 +6,9 @@ import cn.hutool.http.HttpUtil;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.github.chinaworkdayapi.utils.RedisUtils;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.Resource;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -21,13 +23,23 @@ public class HolidayServiceImpl implements HolidayService{
     private String holidayList;
     private List<String> holidayStringList = new ArrayList<>();
     private List<String> compDayStringList = new ArrayList<>();
-    // 大小周计数器,每周-1,为0就代表这周是小周
-    private int bigSmallCount = -1;
-    // 大小周周数
-    private int bigSmallSize = 1;
+    
+    @Resource
+    private RedisUtils redisUtils;
+    
+    private static final String REDIS_KEY_BIG_SMALL_COUNT = "bigSmallCount";
+    private static final String REDIS_KEY_BIG_SMALL_SIZE = "bigSmallSize";
 
     @PostConstruct
     private void init(){
+        // 初始化 Redis 中的值
+        if (!redisUtils.hasKey(REDIS_KEY_BIG_SMALL_COUNT)) {
+            redisUtils.set(REDIS_KEY_BIG_SMALL_COUNT, "-1");
+        }
+        if (!redisUtils.hasKey(REDIS_KEY_BIG_SMALL_SIZE)) {
+            redisUtils.set(REDIS_KEY_BIG_SMALL_SIZE, "1");
+        }
+        
         if (!StringUtils.hasLength(holidayList)){
             holidayList = HttpUtil.get(
                 "https://www.shuyz.com/githubfiles/china-holiday-calender/master/holidayAPI.json");
@@ -38,13 +50,14 @@ public class HolidayServiceImpl implements HolidayService{
 
     @Scheduled(cron = "0 0 10 * * MON")
     public void executeTask() {
+        int bigSmallCount = getBigSmallCount();
         if (bigSmallCount == -1){
             return;
         }
         if (bigSmallCount > 0){
-            bigSmallCount--;
+            setBigSmallCount(bigSmallCount - 1);
         }else {
-            bigSmallCount = bigSmallSize;
+            setBigSmallCount(getBigSmallSize());
         }
     }
 
@@ -102,7 +115,7 @@ public class HolidayServiceImpl implements HolidayService{
 
         // 判断大小周
         if (dayOfWeek == DayOfWeek.SATURDAY) {
-            if (bigSmallCount == 0){
+            if (getBigSmallCount() == 0){
                 return true;
             }else {
                 return false;
@@ -133,12 +146,12 @@ public class HolidayServiceImpl implements HolidayService{
         // 判断大小周
         if (dayOfWeek == DayOfWeek.SATURDAY) {
             long l = DateUtil.betweenWeek(new Date(), DateUtil.parseDate(todayStr), true);
-            int bigCount = bigSmallCount;
+            int bigCount = getBigSmallCount();
             for (long i = 0; i < l; i++) {
                 if (bigCount > 0){
                     bigCount--;
                 }else {
-                    bigCount = bigSmallSize;
+                    bigCount = getBigSmallSize();
                 }
             }
             if (bigCount == 0){
@@ -156,21 +169,23 @@ public class HolidayServiceImpl implements HolidayService{
 
     @Override
     public void setBigSmallCount(int bigSmallCount) {
-        this.bigSmallCount = bigSmallCount;
+        redisUtils.set(REDIS_KEY_BIG_SMALL_COUNT, String.valueOf(bigSmallCount));
     }
 
     @Override
     public void setBigSmallSize(int bigSmallSize) {
-        this.bigSmallSize = bigSmallSize;
+        redisUtils.set(REDIS_KEY_BIG_SMALL_SIZE, String.valueOf(bigSmallSize));
     }
 
     @Override
     public int getBigSmallCount() {
-        return bigSmallCount;
+        Object value = redisUtils.get(REDIS_KEY_BIG_SMALL_COUNT);
+        return value == null ? -1 : Integer.parseInt(value.toString());
     }
 
     @Override
     public int getBigSmallSize() {
-        return bigSmallSize;
+        Object value = redisUtils.get(REDIS_KEY_BIG_SMALL_SIZE);
+        return value == null ? 1 : Integer.parseInt(value.toString());
     }
 }
