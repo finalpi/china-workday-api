@@ -45,7 +45,8 @@ public class HolidayServiceImpl implements HolidayService{
                 "https://www.shuyz.com/githubfiles/china-holiday-calender/master/holidayAPI.json");
         }
         JSONObject jsonObject = JSONUtil.parseObj(holidayList);
-        updateStringList(jsonObject);
+        String currentYear = DateUtil.year(new Date()) + "";
+        updateStringList(jsonObject, currentYear);
     }
 
     @Scheduled(cron = "0 0 10 * * MON")
@@ -61,21 +62,35 @@ public class HolidayServiceImpl implements HolidayService{
         }
     }
 
+    /**
+     * 刷新假期数据，如果年份不匹配则重新从远程获取
+     * @param yyyy 目标年份
+     */
     private void refreshHoliday(String yyyy) {
-        JSONObject jsonObject = JSONUtil.parseObj(holidayList);
         String year = DateUtil.year(new Date()) + "";
         if (!year.equals(yyyy)) {
+            // 重新获取最新的假期数据
             holidayList = HttpUtil.get(
                 "https://www.shuyz.com/githubfiles/china-holiday-calender/master/holidayAPI.json");
-            updateStringList(jsonObject);
         }
+        // 使用最新的holidayList解析数据
+        JSONObject jsonObject = JSONUtil.parseObj(holidayList);
+        updateStringList(jsonObject, yyyy);
     }
 
-    private void updateStringList(JSONObject jsonObject) {
+    /**
+     * 更新假期和调休日期列表
+     * @param jsonObject 假期数据JSON对象
+     * @param year 年份
+     */
+    private void updateStringList(JSONObject jsonObject, String year) {
         holidayStringList = new ArrayList<>();
         compDayStringList = new ArrayList<>();
+        
+        // 使用传入的年份参数，而不是硬编码当前年份
         JSONArray arrays = jsonObject.getJSONObject("Years")
-            .getJSONArray(DateUtil.year(new Date()) + "");
+            .getJSONArray(year);
+        
         for (Object array : arrays) {
             JSONObject jo = (JSONObject)array;
             // 将字符串转换为 DateTime 对象
@@ -113,13 +128,9 @@ public class HolidayServiceImpl implements HolidayService{
         LocalDate tomorrow = LocalDate.parse(tomorrowStr);
         DayOfWeek dayOfWeek = tomorrow.getDayOfWeek();
 
-        // 判断大小周
+        // 判断大小周：如果是周六，且bigSmallCount为0（大周），则需要上班
         if (dayOfWeek == DayOfWeek.SATURDAY) {
-            if (getBigSmallCount() == 0){
-                return true;
-            }else {
-                return false;
-            }
+            return getBigSmallCount() == 0;
         }
         // 判断是否是周日
         if (dayOfWeek == DayOfWeek.SUNDAY) {
@@ -145,20 +156,21 @@ public class HolidayServiceImpl implements HolidayService{
 
         // 判断大小周
         if (dayOfWeek == DayOfWeek.SATURDAY) {
-            long l = DateUtil.betweenWeek(new Date(), DateUtil.parseDate(todayStr), true);
+            // 计算从当前日期到查询日期之间的周数差
+            long weeksBetween = DateUtil.betweenWeek(new Date(), DateUtil.parseDate(todayStr), true);
             int bigCount = getBigSmallCount();
-            for (long i = 0; i < l; i++) {
+            
+            // 根据周数差计算目标日期的大小周状态
+            for (long i = 0; i < weeksBetween; i++) {
                 if (bigCount > 0){
                     bigCount--;
                 }else {
                     bigCount = getBigSmallSize();
                 }
             }
-            if (bigCount == 0){
-                return true;
-            }else {
-                return false;
-            }
+            
+            // 如果bigCount为0，表示是大周，周六需要上班
+            return bigCount == 0;
         }
         // 判断是否是周日
         if (dayOfWeek == DayOfWeek.SUNDAY) {
